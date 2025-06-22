@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import './ImageSelector.css'
 
@@ -30,6 +30,7 @@ interface SelectImagesResult {
 
 function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [previewImage, setPreviewImage] = useState<ImageData | null>(null)
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>): void => {
     console.log('🟡 FILE INPUT USED')
@@ -167,6 +168,16 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
     }
   }
 
+  const handleImageClick = (imageData: ImageData, event: React.MouseEvent): void => {
+    // 阻止拖拽事件
+    event.stopPropagation()
+    setPreviewImage(imageData)
+  }
+
+  const closePreview = (): void => {
+    setPreviewImage(null)
+  }
+
   return (
     <div className="image-selector">
       <input
@@ -181,7 +192,7 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
       {images.length > 0 && (
         <div className="images-header">
           <span className="images-count">已选择 {images.length} 张图片</span>
-          <span className="drag-hint">拖拽调整顺序</span>
+          <span className="drag-hint">拖拽调整顺序，点击图片放大查看</span>
         </div>
       )}
 
@@ -211,6 +222,7 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
                         src={createImageUrl(imageData)}
                         alt={imageData.file.name}
                         className="image-preview"
+                        onClick={(e) => handleImageClick(imageData, e)}
                       />
                       <div className="image-info">
                         <div className="image-name">{imageData.file.name}</div>
@@ -250,6 +262,27 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
           </div>
         </div>
       </div>
+
+      {/* 图片预览模态框 */}
+      {previewImage && (
+        <div className="image-preview-modal" onClick={closePreview}>
+          <div className="modal-overlay" />
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closePreview}>
+              ✕
+            </button>
+            <img
+              src={createImageUrl(previewImage)}
+              alt={previewImage.file.name}
+              className="modal-image"
+            />
+            <div className="modal-info">
+              <div className="modal-filename">{previewImage.file.name}</div>
+              <div className="modal-path">{previewImage.path}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

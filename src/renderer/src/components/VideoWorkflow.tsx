@@ -28,6 +28,7 @@ export interface WorkflowState {
 
   // Step 3: Video generation
   videoUrl: string | null
+  videoFilename: string | null
   isGeneratingVideo: boolean
 
   // UI state
@@ -43,6 +44,7 @@ function VideoWorkflow(): React.JSX.Element {
     srtContent: null,
     isGeneratingSRT: false,
     videoUrl: null,
+    videoFilename: null,
     isGeneratingVideo: false,
     currentStep: 1
   })
@@ -128,6 +130,7 @@ function VideoWorkflow(): React.JSX.Element {
       srtContent: null,
       isGeneratingSRT: false,
       videoUrl: null,
+      videoFilename: null,
       isGeneratingVideo: false,
       currentStep: 1
     })

@@ -90,7 +90,7 @@ function VideoGenerator({
       }
 
       // Generate video (will upload files to R2 internally)
-      const videoUrl = await apiService.generateVideo(
+      const response = await apiService.generateVideo(
         state.audioFile,
         state.images,
         state.srtContent || ''
@@ -99,7 +99,16 @@ function VideoGenerator({
       clearInterval(progressInterval)
       setProgress(100)
 
-      updateState({ videoUrl, isGeneratingVideo: false })
+      // Handle the API response structure
+      if (response.success) {
+        updateState({
+          videoUrl: response.download_url,
+          videoFilename: response.output,
+          isGeneratingVideo: false
+        })
+      } else {
+        throw new Error(response.message || '视频生成失败')
+      }
     } catch (error) {
       console.error('Error generating video:', error)
       updateState({ isGeneratingVideo: false })
@@ -111,7 +120,7 @@ function VideoGenerator({
     if (state.videoUrl) {
       const a = document.createElement('a')
       a.href = state.videoUrl
-      a.download = 'generated-video.mp4'
+      a.download = state.videoFilename || 'generated-video.mp4'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
