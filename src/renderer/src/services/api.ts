@@ -21,6 +21,13 @@ interface ByteDanceResponse {
   utterances?: ByteDanceUtterance[]
 }
 
+interface VideoGenerateResponse {
+  success: boolean
+  message: string
+  output: string
+  download_url: string
+}
+
 // Convert ByteDance API response to SRT format
 function convertToSRT(apiResponse: ByteDanceResponse): string {
   const srts: string[] = []
@@ -203,7 +210,7 @@ export class APIService {
     audioData: { file: File; path: string },
     imageFiles: { file: File; path: string }[],
     srtContent: string
-  ): Promise<string> {
+  ): Promise<VideoGenerateResponse> {
     try {
       console.log('Starting video generation...')
 
@@ -239,26 +246,14 @@ export class APIService {
       }
 
       const result = await response.json()
-      return result.videoUrl || result.url
+      console.log('Video generation API response:', result)
+
+      // Return the complete response object that matches VideoGenerateResponse interface
+      return result as VideoGenerateResponse
     } catch (error) {
       console.error('Error generating video:', error)
       throw error
     }
-  }
-
-  // Convert file to base64 safely to avoid stack overflow
-  private async fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = reader.result as string
-        // Remove the data:type/subtype;base64, prefix
-        const base64 = result.split(',')[1]
-        resolve(base64)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
   }
 
   // Create a temporary local file URL for display purposes

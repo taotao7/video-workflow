@@ -12,6 +12,13 @@ interface VideoGeneratorProps {
   onReset: () => void
 }
 
+interface VideoGenerateResponse {
+  success: boolean
+  message: string
+  output: string
+  download_url: string
+}
+
 function VideoGenerator({
   state,
   updateState,
@@ -90,7 +97,7 @@ function VideoGenerator({
       }
 
       // Generate video (will upload files to R2 internally)
-      const response = await apiService.generateVideo(
+      const response: VideoGenerateResponse = await apiService.generateVideo(
         state.audioFile,
         state.images,
         state.srtContent || ''
