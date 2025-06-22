@@ -11,7 +11,7 @@ let tray: Tray | null = null
 function createWindow(): void {
   // Load saved window bounds
   const savedBounds = loadWindowBounds()
-  
+
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: savedBounds.width,
@@ -43,7 +43,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    
+
     // Open DevTools in development
     if (is.dev) {
       mainWindow.webContents.openDevTools()
@@ -93,7 +93,7 @@ function createWindow(): void {
 
 function createTray(): void {
   tray = new Tray(icon)
-  
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '显示窗口',
@@ -118,10 +118,10 @@ function createTray(): void {
       }
     }
   ])
-  
+
   tray.setContextMenu(contextMenu)
   tray.setToolTip('Video Workflow')
-  
+
   tray.on('double-click', () => {
     if (mainWindow?.isVisible()) {
       mainWindow.hide()
@@ -148,12 +148,11 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-
   // Handle app config save/load
   ipcMain.handle('save-app-config', async (event, config) => {
     try {
       let existingConfig = {}
-      
+
       if (existsSync(configPath)) {
         try {
           existingConfig = JSON.parse(readFileSync(configPath, 'utf8'))
@@ -161,12 +160,12 @@ app.whenReady().then(() => {
           existingConfig = {}
         }
       }
-      
+
       const newConfig = {
         ...existingConfig,
         appConfig: config
       }
-      
+
       writeFileSync(configPath, JSON.stringify(newConfig, null, 2))
       return { success: true }
     } catch (error) {
@@ -180,7 +179,7 @@ app.whenReady().then(() => {
       if (!existsSync(configPath)) {
         return { success: true, config: null }
       }
-      
+
       const config = JSON.parse(readFileSync(configPath, 'utf8'))
       return { success: true, config: config.appConfig || null }
     } catch (error) {
@@ -194,41 +193,41 @@ app.whenReady().then(() => {
     const { dialog } = require('electron')
     const { readFileSync } = require('fs')
     const { basename } = require('path')
-    
+
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
-      ]
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }]
     })
-    
+
     if (!result.canceled) {
-      const imageData = result.filePaths.map(filePath => {
-        try {
-          const buffer = readFileSync(filePath)
-          const base64 = buffer.toString('base64')
-          const fileName = basename(filePath)
-          
-          // Determine MIME type
-          const ext = filePath.split('.').pop()?.toLowerCase()
-          let mimeType = 'image/jpeg'
-          if (ext === 'png') mimeType = 'image/png'
-          else if (ext === 'gif') mimeType = 'image/gif'
-          else if (ext === 'webp') mimeType = 'image/webp'
-          else if (ext === 'bmp') mimeType = 'image/bmp'
-          
-          return {
-            filePath,
-            fileName,
-            base64: `data:${mimeType};base64,${base64}`,
-            mimeType
+      const imageData = result.filePaths
+        .map((filePath) => {
+          try {
+            const buffer = readFileSync(filePath)
+            const base64 = buffer.toString('base64')
+            const fileName = basename(filePath)
+
+            // Determine MIME type
+            const ext = filePath.split('.').pop()?.toLowerCase()
+            let mimeType = 'image/jpeg'
+            if (ext === 'png') mimeType = 'image/png'
+            else if (ext === 'gif') mimeType = 'image/gif'
+            else if (ext === 'webp') mimeType = 'image/webp'
+            else if (ext === 'bmp') mimeType = 'image/bmp'
+
+            return {
+              filePath,
+              fileName,
+              base64: `data:${mimeType};base64,${base64}`,
+              mimeType
+            }
+          } catch (error) {
+            console.error('Error reading file:', filePath, error)
+            return null
           }
-        } catch (error) {
-          console.error('Error reading file:', filePath, error)
-          return null
-        }
-      }).filter(Boolean)
-      
+        })
+        .filter(Boolean)
+
       return { success: true, imageData }
     }
     return { success: false, imageData: [] }
@@ -237,17 +236,56 @@ app.whenReady().then(() => {
   // Handle file dialog for audio
   ipcMain.handle('select-audio', async () => {
     const { dialog } = require('electron')
+    const { readFileSync } = require('fs')
+    const { basename } = require('path')
+
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
-      filters: [
-        { name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }
-      ]
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }]
     })
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
-      return { success: true, filePath: result.filePaths[0] }
+      const filePath = result.filePaths[0]
+      try {
+        const buffer = readFileSync(filePath)
+        const base64 = buffer.toString('base64')
+        const fileName = basename(filePath)
+
+        // Determine MIME type
+        const ext = filePath.split('.').pop()?.toLowerCase()
+        let mimeType = 'audio/mpeg'
+        if (ext === 'wav') mimeType = 'audio/wav'
+        else if (ext === 'aac') mimeType = 'audio/aac'
+        else if (ext === 'm4a') mimeType = 'audio/mp4'
+        else if (ext === 'ogg') mimeType = 'audio/ogg'
+
+        return {
+          success: true,
+          audioData: {
+            filePath,
+            fileName,
+            base64: `data:${mimeType};base64,${base64}`,
+            mimeType
+          }
+        }
+      } catch (error) {
+        console.error('Error reading audio file:', filePath, error)
+        return { success: false, audioData: null }
+      }
     }
-    return { success: false, filePath: null }
+    return { success: false, audioData: null }
+  })
+
+  // Handle drag and drop file paths
+  ipcMain.handle('get-file-paths', async (event, fileNames: string[]) => {
+    // This is a simplified approach - in a real app you might want to
+    // implement a more sophisticated file path resolution
+    try {
+      return { success: true, filePaths: fileNames }
+    } catch (error) {
+      console.error('Error getting file paths:', error)
+      return { success: false, filePaths: [] }
+    }
   })
 
   createWindow()
@@ -277,15 +315,15 @@ app.on('before-quit', () => {
 function getContentType(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase()
   const mimeTypes: Record<string, string> = {
-    'mp3': 'audio/mpeg',
-    'wav': 'audio/wav',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-    'srt': 'text/plain',
-    'txt': 'text/plain'
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    srt: 'text/plain',
+    txt: 'text/plain'
   }
   return mimeTypes[ext || ''] || 'application/octet-stream'
 }
@@ -302,11 +340,11 @@ interface WindowBounds {
 
 function loadWindowBounds(): WindowBounds {
   const defaultBounds = { width: 1600, height: 1000 }
-  
+
   if (!existsSync(configPath)) {
     return defaultBounds
   }
-  
+
   try {
     const config = JSON.parse(readFileSync(configPath, 'utf8'))
     return {
@@ -322,10 +360,10 @@ function loadWindowBounds(): WindowBounds {
 
 function saveWindowBounds(): void {
   if (!mainWindow) return
-  
+
   const bounds = mainWindow.getBounds()
   let config = {}
-  
+
   if (existsSync(configPath)) {
     try {
       config = JSON.parse(readFileSync(configPath, 'utf8'))
@@ -333,12 +371,12 @@ function saveWindowBounds(): void {
       config = {}
     }
   }
-  
+
   config = {
     ...config,
     windowBounds: bounds
   }
-  
+
   try {
     writeFileSync(configPath, JSON.stringify(config, null, 2))
   } catch (error) {

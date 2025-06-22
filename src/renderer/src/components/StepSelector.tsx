@@ -8,12 +8,17 @@ interface ImageData {
   path: string
 }
 
+interface AudioData {
+  file: File
+  path: string
+}
+
 interface StepSelectorProps {
-  audioFile: File | null
+  audioFile: AudioData | null
   images: ImageData[]
   srtMode: 'generate' | 'upload' | null
   srtFile: File | null
-  onAudioSelect: (file: File | null) => void
+  onAudioSelect: (audio: AudioData | null) => void
   onImagesSelect: (images: ImageData[]) => void
   onSrtModeSelect: (mode: 'generate' | 'upload') => void
   onSrtFileSelect: (file: File | null) => void
@@ -36,12 +41,12 @@ function StepSelector({
   const canProceed =
     audioFile && images.length > 0 && srtMode && (srtMode === 'generate' || srtFile)
 
-  const handleSrtFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSrtFileSelect = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0] || null
     onSrtFileSelect(file)
   }
 
-  const handleSrtFileDrop = (event: React.DragEvent) => {
+  const handleSrtFileDrop = (event: React.DragEvent): void => {
     event.preventDefault()
     setDraggedOver(false)
 
@@ -52,12 +57,12 @@ function StepSelector({
     }
   }
 
-  const handleDragOver = (event: React.DragEvent) => {
+  const handleDragOver = (event: React.DragEvent): void => {
     event.preventDefault()
     setDraggedOver(true)
   }
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (): void => {
     setDraggedOver(false)
   }
 

@@ -11,12 +11,22 @@ function msToTimeString(ms: number): string {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`
 }
 
+interface ByteDanceUtterance {
+  start_time: number
+  end_time: number
+  text: string
+}
+
+interface ByteDanceResponse {
+  utterances?: ByteDanceUtterance[]
+}
+
 // Convert ByteDance API response to SRT format
-function convertToSRT(apiResponse: any): string {
+function convertToSRT(apiResponse: ByteDanceResponse): string {
   const srts: string[] = []
 
   if (apiResponse.utterances && Array.isArray(apiResponse.utterances)) {
-    apiResponse.utterances.forEach((utterance: any, index: number) => {
+    apiResponse.utterances.forEach((utterance: ByteDanceUtterance, index: number) => {
       const startTime = msToTimeString(utterance.start_time)
       const endTime = msToTimeString(utterance.end_time)
       const text = utterance.text
@@ -35,7 +45,7 @@ export class APIService {
     this.config = config
   }
 
-  updateConfig(config: SettingsConfig) {
+  updateConfig(config: SettingsConfig): void {
     this.config = config
   }
 
@@ -96,7 +106,7 @@ export class APIService {
           console.log('Received task_id:', result.id)
           return await this.pollForSRTResult(result.id)
         }
-        
+
         // 或者使用task_id字段
         if (result.task_id) {
           console.log('Received task_id:', result.task_id)
@@ -158,7 +168,7 @@ export class APIService {
             console.log('Final SRT content:', srtContent)
             return srtContent
           }
-          
+
           // 检查data字段中的状态
           if (result.data) {
             if (result.data.status === 'success' || result.data.status === 'completed') {
@@ -189,12 +199,16 @@ export class APIService {
     throw new Error('SRT generation timed out after 15 attempts (300 seconds)')
   }
 
-  async generateVideo(audioFile: File, imageFiles: { file: File; path: string }[], srtContent: string): Promise<string> {
+  async generateVideo(
+    audioData: { file: File; path: string },
+    imageFiles: { file: File; path: string }[],
+    srtContent: string
+  ): Promise<string> {
     try {
       console.log('Starting video generation...')
-      
+
       // Convert audio file to base64 using FileReader to avoid stack overflow
-      const audioBase64 = await this.fileToBase64(audioFile)
+      const audioBase64 = await this.fileToBase64(audioData.file)
       console.log('Audio converted to base64, size:', audioBase64.length)
 
       // Get file paths for images

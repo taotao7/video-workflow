@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import VideoWorkflow from './components/VideoWorkflow'
 
 function App(): React.JSX.Element {

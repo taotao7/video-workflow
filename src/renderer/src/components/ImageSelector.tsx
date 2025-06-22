@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import { useRef } from 'react'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import './ImageSelector.css'
 
 interface ImageData {
@@ -12,21 +12,37 @@ interface ImageSelectorProps {
   onImagesSelect: (images: ImageData[]) => void
 }
 
+interface ElectronFile {
+  path?: string
+}
+
+interface ImageFileData {
+  filePath: string
+  fileName: string
+  base64: string
+  mimeType: string
+}
+
+interface SelectImagesResult {
+  success: boolean
+  imageData: ImageFileData[]
+}
+
 function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null)
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>): void => {
     console.log('🟡 FILE INPUT USED')
     const files = Array.from(event.target.files || [])
     const imageFiles = files.filter((file) => file.type.startsWith('image/'))
     const imageDataList: ImageData[] = imageFiles.map((file) => {
       // In Electron, file input files also have a 'path' property
-      const systemPath = (file as any).path || file.name
+      const electronFile = file as File & ElectronFile
+      const systemPath = electronFile.path || file.name
       console.log('File input file:', {
         name: file.name,
         systemPath: systemPath,
-        hasPath: !!(file as any).path
+        hasPath: !!electronFile.path
       })
       return {
         file,
@@ -40,51 +56,65 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
     onImagesSelect([...images, ...imageDataList])
   }
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = async (event: React.DragEvent): Promise<void> => {
     event.preventDefault()
-    setDraggedOverIndex(null)
 
     console.log('🔴 DRAG AND DROP USED')
     const files = Array.from(event.dataTransfer.files)
     const imageFiles = files.filter((file) => file.type.startsWith('image/'))
+
     if (imageFiles.length > 0) {
-      const imageDataList: ImageData[] = imageFiles.map((file) => {
-        // In Electron, dragged files have a 'path' property with the system path
-        const systemPath = (file as any).path || file.name
-        console.log('Drag drop file:', {
-          name: file.name,
-          systemPath: systemPath,
-          hasPath: !!(file as any).path
+      try {
+        // Try to get system paths from dragged files
+        const imageDataList: ImageData[] = imageFiles.map((file) => {
+          const electronFile = file as File & ElectronFile
+          const systemPath = electronFile.path || file.name
+          console.log('Drag drop file:', {
+            name: file.name,
+            systemPath: systemPath,
+            hasPath: !!electronFile.path
+          })
+          return {
+            file,
+            path: systemPath
+          }
         })
-        return {
+
+        console.log(
+          'Drag drop selected images:',
+          imageDataList.map((img) => ({ name: img.file.name, path: img.path }))
+        )
+        onImagesSelect([...images, ...imageDataList])
+      } catch (error) {
+        console.error('Error processing dragged files:', error)
+        // Fallback to basic file handling
+        const imageDataList: ImageData[] = imageFiles.map((file) => ({
           file,
-          path: systemPath
-        }
-      })
-      console.log(
-        'Drag drop selected images:',
-        imageDataList.map((img) => ({ name: img.file.name, path: img.path }))
-      )
-      onImagesSelect([...images, ...imageDataList])
+          path: file.name
+        }))
+        onImagesSelect([...images, ...imageDataList])
+      }
     }
   }
 
-  const handleDragOver = (event: React.DragEvent) => {
+  const handleDragOver = (event: React.DragEvent): void => {
     event.preventDefault()
   }
 
-  const handleDragEnter = (event: React.DragEvent) => {
+  const handleDragEnter = (event: React.DragEvent): void => {
     event.preventDefault()
   }
 
-  const handleClick = async () => {
+  const handleClick = async (): Promise<void> => {
     try {
       console.log('🔵 BUTTON CLICKED: Invoking select-images...')
-      const result = await window.electron.ipcRenderer.invoke('select-images')
+      const result = (await window.electron.ipcRenderer.invoke(
+        'select-images'
+      )) as SelectImagesResult
       console.log('select-images result:', result)
 
       if (result.success && result.imageData.length > 0) {
-        const imageDataList: ImageData[] = result.imageData.map((data: any) => {
+        const imageDataList: ImageData[] = result.imageData.map((data: ImageFileData) => {
           console.log('Processing image data:', data)
           // Create a File object from the base64 data
           const byteCharacters = atob(data.base64.split(',')[1])
@@ -113,12 +143,12 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
     }
   }
 
-  const handleRemove = (index: number) => {
+  const handleRemove = (index: number): void => {
     const newImages = images.filter((_, i) => i !== index)
     onImagesSelect(newImages)
   }
 
-  const handleDragEnd = (result: any) => {
+  const handleDragEnd = (result: DropResult): void => {
     if (!result.destination) return
 
     const items = Array.from(images)
@@ -128,7 +158,7 @@ function ImageSelector({ images, onImagesSelect }: ImageSelectorProps): React.JS
     onImagesSelect(items)
   }
 
-  const createImageUrl = (imageData: ImageData) => {
+  const createImageUrl = (imageData: ImageData): string => {
     try {
       return URL.createObjectURL(imageData.file)
     } catch (error) {

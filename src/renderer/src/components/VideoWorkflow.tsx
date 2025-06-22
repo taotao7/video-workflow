@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import StepSelector from './StepSelector'
 import VideoGenerator from './VideoGenerator'
 import Settings, { SettingsConfig, defaultConfig } from './Settings'
@@ -10,9 +10,14 @@ interface ImageData {
   path: string
 }
 
+interface AudioData {
+  file: File
+  path: string
+}
+
 export interface WorkflowState {
   // Step 1: File selection
-  audioFile: File | null
+  audioFile: AudioData | null
   images: ImageData[]
   srtMode: 'generate' | 'upload' | null // generate from audio or upload SRT file
   srtFile: File | null // uploaded SRT file
@@ -48,7 +53,7 @@ function VideoWorkflow(): React.JSX.Element {
 
   useEffect(() => {
     // Load settings from main process
-    const loadConfig = async () => {
+    const loadConfig = async (): Promise<void> => {
       try {
         const result = await window.electron.ipcRenderer.invoke('load-app-config')
         if (result.success && result.config) {
@@ -69,7 +74,7 @@ function VideoWorkflow(): React.JSX.Element {
     loadConfig()
   }, [])
 
-  const handleConfigChange = async (newConfig: SettingsConfig) => {
+  const handleConfigChange = async (newConfig: SettingsConfig): Promise<void> => {
     setConfig(newConfig)
     apiService.updateConfig(newConfig)
 
@@ -83,11 +88,11 @@ function VideoWorkflow(): React.JSX.Element {
     }
   }
 
-  const updateState = (updates: Partial<WorkflowState>) => {
+  const updateState = (updates: Partial<WorkflowState>): void => {
     setState((prev) => ({ ...prev, ...updates }))
   }
 
-  const handleNextStep = async () => {
+  const handleNextStep = async (): Promise<void> => {
     if (state.currentStep === 1) {
       // Process SRT if uploaded
       if (state.srtMode === 'upload' && state.srtFile) {
@@ -108,13 +113,13 @@ function VideoWorkflow(): React.JSX.Element {
     }
   }
 
-  const handlePreviousStep = () => {
+  const handlePreviousStep = (): void => {
     if (state.currentStep > 1) {
       updateState({ currentStep: (state.currentStep - 1) as 1 | 2 | 3 })
     }
   }
 
-  const handleReset = () => {
+  const handleReset = (): void => {
     setState({
       audioFile: null,
       images: [],

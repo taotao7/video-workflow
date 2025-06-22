@@ -22,7 +22,7 @@ function VideoGenerator({
 }: VideoGeneratorProps): React.JSX.Element {
   const [progress, setProgress] = useState(0)
 
-  const generateSRT = async () => {
+  const generateSRT = async (): Promise<void> => {
     if (!state.audioFile) return
 
     updateState({ isGeneratingSRT: true })
@@ -49,13 +49,13 @@ function VideoGenerator({
       }, 300)
 
       // Generate SRT using ByteDance API (will upload to R2 internally)
-      const srtContent = await apiService.generateSRT(state.audioFile)
+      const srtContent = await apiService.generateSRT(state.audioFile.file)
 
       clearInterval(progressInterval)
       setProgress(100)
 
       updateState({ srtContent, isGeneratingSRT: false })
-      
+
       // Auto proceed to next step after SRT generation
       setTimeout(() => {
         onNext()
@@ -67,7 +67,7 @@ function VideoGenerator({
     }
   }
 
-  const generateVideo = async () => {
+  const generateVideo = async (): Promise<void> => {
     if (!state.audioFile || state.images.length === 0) return
 
     updateState({ isGeneratingVideo: true })
@@ -88,6 +88,11 @@ function VideoGenerator({
       console.log('audioFile', state.audioFile)
       console.log('images', state.images)
       console.log('srtContent', state.srtContent)
+
+      if (!state.audioFile) {
+        throw new Error('音频文件不存在')
+      }
+
       // Generate video (will upload files to R2 internally)
       const videoUrl = await apiService.generateVideo(
         state.audioFile,
@@ -106,7 +111,7 @@ function VideoGenerator({
     }
   }
 
-  const downloadVideo = () => {
+  const downloadVideo = (): void => {
     if (state.videoUrl) {
       const a = document.createElement('a')
       a.href = state.videoUrl
@@ -130,7 +135,7 @@ function VideoGenerator({
           <div className="file-summary">
             <div className="summary-item">
               <span className="label">音频文件:</span>
-              <span className="value">{state.audioFile?.name}</span>
+              <span className="value">{state.audioFile?.file.name}</span>
             </div>
             <div className="summary-item">
               <span className="label">图片数量:</span>
@@ -156,9 +161,7 @@ function VideoGenerator({
                 >
                   {state.isGeneratingSRT ? '正在生成字幕...' : '开始生成字幕'}
                 </button>
-                <p className="generation-hint">
-                  使用AI语音识别技术从音频文件生成SRT字幕文件
-                </p>
+                <p className="generation-hint">使用AI语音识别技术从音频文件生成SRT字幕文件</p>
               </div>
             )}
 
@@ -199,7 +202,7 @@ function VideoGenerator({
         <div className="file-summary">
           <div className="summary-item">
             <span className="label">音频文件:</span>
-            <span className="value">{state.audioFile?.name}</span>
+            <span className="value">{state.audioFile?.file.name}</span>
           </div>
           <div className="summary-item">
             <span className="label">图片数量:</span>
@@ -235,9 +238,7 @@ function VideoGenerator({
               >
                 {state.isGeneratingVideo ? '正在生成视频...' : '开始生成视频'}
               </button>
-              <p className="generation-hint">
-                将音频、图片和字幕合成为最终视频文件
-              </p>
+              <p className="generation-hint">将音频、图片和字幕合成为最终视频文件</p>
             </div>
           )}
 
