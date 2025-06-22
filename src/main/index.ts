@@ -1,11 +1,14 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -21,6 +24,13 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  mainWindow.on('close', (event) => {
+    if (!app.isQuiting) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -33,6 +43,46 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function createTray(): void {
+  tray = new Tray(icon)
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => {
+        mainWindow?.show()
+      }
+    },
+    {
+      label: '隐藏窗口',
+      click: () => {
+        mainWindow?.hide()
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: '退出',
+      click: () => {
+        app.isQuiting = true
+        app.quit()
+      }
+    }
+  ])
+  
+  tray.setContextMenu(contextMenu)
+  tray.setToolTip('Video Workflow')
+  
+  tray.on('double-click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow.hide()
+    } else {
+      mainWindow?.show()
+    }
+  })
 }
 
 // This method will be called when Electron has finished
@@ -53,6 +103,7 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   createWindow()
+  createTray()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -65,9 +116,13 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && app.isQuiting) {
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  app.isQuiting = true
 })
 
 // In this file you can include the rest of your app's specific main process
