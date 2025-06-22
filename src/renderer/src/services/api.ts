@@ -207,10 +207,6 @@ export class APIService {
     try {
       console.log('Starting video generation...')
 
-      // Convert audio file to base64 using FileReader to avoid stack overflow
-      const audioBase64 = await this.fileToBase64(audioData.file)
-      console.log('Audio converted to base64, size:', audioBase64.length)
-
       // Get file paths for images
       const imagePaths: string[] = []
       for (let i = 0; i < imageFiles.length; i++) {
@@ -226,7 +222,7 @@ export class APIService {
 
       const requestData = {
         images: imagePaths,
-        mp3: audioBase64,
+        mp3: audioData.path,
         srt: srtContent
       }
 

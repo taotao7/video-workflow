@@ -85,10 +85,6 @@ function VideoGenerator({
         })
       }, 500)
 
-      console.log('audioFile', state.audioFile)
-      console.log('images', state.images)
-      console.log('srtContent', state.srtContent)
-
       if (!state.audioFile) {
         throw new Error('音频文件不存在')
       }

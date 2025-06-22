@@ -1,5 +1,5 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
+import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { homedir } from 'os'
@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let isQuiting = false
 
 function createWindow(): void {
   // Load saved window bounds
@@ -42,16 +43,16 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow?.show()
 
     // Open DevTools in development
     if (is.dev) {
-      mainWindow.webContents.openDevTools()
+      mainWindow?.webContents.openDevTools()
     }
   })
 
   mainWindow.on('close', (event) => {
-    if (!app.isQuiting) {
+    if (!isQuiting) {
       event.preventDefault()
       mainWindow?.hide()
     } else {
@@ -86,8 +87,8 @@ function createWindow(): void {
     console.error('[Main] Renderer process became unresponsive')
   })
 
-  mainWindow.webContents.on('crashed', (event, killed) => {
-    console.error('[Main] Renderer process crashed:', { killed })
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[Main] Renderer process crashed:', details)
   })
 }
 
@@ -113,7 +114,7 @@ function createTray(): void {
     {
       label: '退出',
       click: () => {
-        app.isQuiting = true
+        isQuiting = true
         app.quit()
       }
     }
@@ -170,7 +171,7 @@ app.whenReady().then(() => {
       return { success: true }
     } catch (error) {
       console.error('Failed to save app config:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: (error as Error).message }
     }
   })
 
@@ -184,17 +185,13 @@ app.whenReady().then(() => {
       return { success: true, config: config.appConfig || null }
     } catch (error) {
       console.error('Failed to load app config:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: (error as Error).message }
     }
   })
 
   // Handle file dialog for images
   ipcMain.handle('select-images', async () => {
-    const { dialog } = require('electron')
-    const { readFileSync } = require('fs')
-    const { basename } = require('path')
-
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }]
     })
@@ -235,11 +232,7 @@ app.whenReady().then(() => {
 
   // Handle file dialog for audio
   ipcMain.handle('select-audio', async () => {
-    const { dialog } = require('electron')
-    const { readFileSync } = require('fs')
-    const { basename } = require('path')
-
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const result = await dialog.showOpenDialog(mainWindow!, {
       properties: ['openFile'],
       filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }]
     })
@@ -302,31 +295,14 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' && app.isQuiting) {
+  if (process.platform !== 'darwin' && isQuiting) {
     app.quit()
   }
 })
 
 app.on('before-quit', () => {
-  app.isQuiting = true
+  isQuiting = true
 })
-
-// Helper function to get content type
-function getContentType(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase()
-  const mimeTypes: Record<string, string> = {
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    srt: 'text/plain',
-    txt: 'text/plain'
-  }
-  return mimeTypes[ext || ''] || 'application/octet-stream'
-}
 
 // Window bounds management
 const configPath = join(homedir(), '.video-workflow-config.json')
