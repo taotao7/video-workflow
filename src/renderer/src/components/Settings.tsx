@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './Settings.css'
+import { defaultConfig } from '../config/settings-config'
 
 export interface SettingsConfig {
   bytedanceToken: string
@@ -19,17 +20,6 @@ interface SettingsProps {
   onConfigChange: (config: SettingsConfig) => void
 }
 
-const defaultConfig: SettingsConfig = {
-  bytedanceToken: '',
-  bytedanceAppId: '',
-  bytedanceLanguage: 'zh-CN',
-  bytedanceWordsPerLine: 15,
-  bytedanceMaxLines: 1,
-  bytedanceUseItn: true,
-  bytedanceUsePunc: true,
-  videoGenBaseUrl: 'http://localhost:9999'
-}
-
 function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps): React.JSX.Element {
   const [formData, setFormData] = useState<SettingsConfig>(() => ({
     ...defaultConfig,
@@ -37,22 +27,22 @@ function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps): R
   }))
 
   useEffect(() => {
-    setFormData(prev => ({
+    setFormData(() => ({
       ...defaultConfig,
       ...config
     }))
   }, [config])
 
-  const handleChange = (field: keyof SettingsConfig, value: string | number | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleChange = (field: keyof SettingsConfig, value: string | number | boolean): void => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     onConfigChange(formData)
     onClose()
   }
 
-  const handleReset = () => {
+  const handleReset = (): void => {
     setFormData(defaultConfig)
   }
 
@@ -63,11 +53,12 @@ function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps): R
       <div className="settings-modal">
         <div className="settings-header">
           <h2>配置设置</h2>
-          <button className="close-button" onClick={onClose}>✕</button>
+          <button className="close-button" onClick={onClose}>
+            ✕
+          </button>
         </div>
-        
-        <div className="settings-content">
 
+        <div className="settings-content">
           <div className="settings-section">
             <h3>字节跳动语音识别 API</h3>
             <div className="form-group">
@@ -107,7 +98,9 @@ function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps): R
                 min="5"
                 max="50"
                 value={formData.bytedanceWordsPerLine || 15}
-                onChange={(e) => handleChange('bytedanceWordsPerLine', parseInt(e.target.value) || 15)}
+                onChange={(e) =>
+                  handleChange('bytedanceWordsPerLine', parseInt(e.target.value) || 15)
+                }
               />
             </div>
             <div className="form-group">
@@ -178,4 +171,3 @@ function Settings({ isOpen, onClose, config, onConfigChange }: SettingsProps): R
 }
 
 export default Settings
-export { defaultConfig }

@@ -18,22 +18,25 @@ window.addEventListener('unhandledrejection', (event) => {
 })
 
 // React error boundary
-class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error?: Error}> {
-  constructor(props: {children: ReactNode}) {
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: ReactNode }) {
     super(props)
     this.state = { hasError: false }
   }
 
-  static getDerivedStateFromError(error: Error) {
+  static getDerivedStateFromError(error: Error): { hasError: boolean; error: Error } {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('React error boundary caught error:', error)
     console.error('Error info:', errorInfo)
   }
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', textAlign: 'center' }}>

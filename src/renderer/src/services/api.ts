@@ -225,7 +225,6 @@ export class APIService {
         })
         imagePaths.push(imageData.path)
       }
-      console.log('Image paths to send to server:', imagePaths)
 
       const requestData = {
         images: imagePaths,

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import StepSelector from './StepSelector'
 import VideoGenerator from './VideoGenerator'
-import Settings, { SettingsConfig, defaultConfig } from './Settings'
+import Settings, { SettingsConfig } from './Settings'
+import { defaultConfig } from '../config/settings-config'
 import { APIService } from '../services/api'
 import './VideoWorkflow.css'
 
