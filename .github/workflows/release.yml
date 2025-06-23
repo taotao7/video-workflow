@@ -4,11 +4,9 @@ on:
   push:
     tags:
       - v*.*.*
-  workflow_dispatch:
 
 jobs:
   release:
-    timeout-minutes: 10
     runs-on: ${{ matrix.os }}
 
     strategy:
