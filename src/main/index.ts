@@ -5,9 +5,9 @@ import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs'
 import { homedir } from 'os'
 import { spawn, ChildProcess } from 'child_process'
 import icon from '../../resources/icon.png?asset'
-import pic2videoWin from '../../resources/pic2video.exe?asset'
-import pic2videoMac from '../../resources/pic2video_mac?asset'
-import pic2videoLinux from '../../resources/pic2video_linux?asset'
+import pic2videoWin from '../../resources/pic2video.exe?asset&asarUnpack'
+import pic2videoMac from '../../resources/pic2video_mac?asset&asarUnpack'
+import pic2videoLinux from '../../resources/pic2video_linux?asset&asarUnpack'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
