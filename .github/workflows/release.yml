@@ -16,15 +16,50 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Set Electron cache
+        run: |
+          echo "ELECTRON_CACHE=${{ runner.temp }}/electron-cache" >> $GITHUB_ENV
+          echo "ELECTRON_BUILDER_CACHE=${{ runner.temp }}/electron-builder-cache" >> $GITHUB_ENV
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/electron-cache
+          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-cache-
+
+      - name: Cache Electron Builder
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/electron-builder-cache
+          key: ${{ runner.os }}-electron-builder-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-cache-
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm install --no-audit --no-fund
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_CUSTOM_DIR: '{{ version }}'
 
       # - name: build-linux
       #   if: matrix.os == 'ubuntu-latest'
@@ -37,9 +72,11 @@ jobs:
       - name: build-win
         if: matrix.os == 'windows-latest'
         run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: true
           files: |
