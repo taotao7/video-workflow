@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs'
 import { homedir } from 'os'
 import { spawn, ChildProcess } from 'child_process'
+import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
 import pic2videoWin from '../../resources/pic2video.exe?asset&asarUnpack'
 import pic2videoMac from '../../resources/pic2video_mac?asset&asarUnpack'
@@ -138,6 +139,46 @@ function createTray(): void {
   })
 }
 
+// Auto updater configuration
+if (!is.dev) {
+  autoUpdater.logger = console
+  autoUpdater.checkForUpdatesAndNotify()
+}
+
+// Handle auto-updater events
+autoUpdater.on('checking-for-update', () => {
+  console.log('正在检查更新...')
+})
+
+autoUpdater.on('update-available', (info) => {
+  console.log('发现新版本:', info.version)
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', info)
+  }
+})
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('当前已是最新版本:', info.version)
+})
+
+autoUpdater.on('error', (err) => {
+  console.error('自动更新错误:', err)
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log(`下载进度: ${Math.round(progressObj.percent)}%`)
+  if (mainWindow) {
+    mainWindow.webContents.send('download-progress', progressObj)
+  }
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('更新下载完成:', info.version)
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', info)
+  }
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -154,6 +195,28 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // Handle update-related IPC calls
+  ipcMain.handle('check-for-updates', async () => {
+    if (!is.dev) {
+      try {
+        const result = await autoUpdater.checkForUpdates()
+        return { success: true, updateInfo: result?.updateInfo }
+      } catch (error) {
+        console.error('检查更新失败:', error)
+        return { success: false, error: (error as Error).message }
+      }
+    }
+    return { success: false, error: '开发环境不支持自动更新' }
+  })
+
+  ipcMain.handle('restart-and-install-update', async () => {
+    if (!is.dev) {
+      autoUpdater.quitAndInstall()
+      return { success: true }
+    }
+    return { success: false, error: '开发环境不支持自动更新' }
+  })
 
   // Handle app config save/load
   ipcMain.handle('save-app-config', async (_, config) => {

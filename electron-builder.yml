@@ -60,7 +60,8 @@ npmRebuild: false
 buildDependenciesFromSource: false
 nodeGypRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: taotao7
+  repo: video-workflow
 compression: maximum
 nativeRebuilder: sequential
