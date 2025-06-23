@@ -5,42 +5,51 @@ on:
     tags:
       - v*.*.*
 
+# 添加必要的权限
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [windows-latest]
+        # 支持多平台构建
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm install
 
-      # - name: build-linux
-      #   if: matrix.os == 'ubuntu-latest'
-      #   run: npm run build:linux
+      - name: build-linux
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build:linux
 
-      # - name: build-mac
-      #   if: matrix.os == 'macos-latest'
-      #   run: npm run build:mac
+      - name: build-mac
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
 
       - name: build-win
         if: matrix.os == 'windows-latest'
         run: npm run build:win
 
       - name: release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: false
+          # 自动生成发布说明
+          generate_release_notes: true
+          # 文件上传模式
           files: |
             dist/*.exe
             dist/*.zip
@@ -52,5 +61,12 @@ jobs:
             dist/*.tar.gz
             dist/*.yml
             dist/*.blockmap
+          # 如果没有匹配的文件则失败
+          fail_on_unmatched_files: false
+          # 覆盖已存在的文件
+          overwrite_files: true
+          # 设置为最新版本
+          make_latest: true
+        # 使用默认的 GitHub token 而不是自定义的 ACCESS_TOKEN
         env:
-          GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
