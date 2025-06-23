@@ -8,58 +8,24 @@ on:
 
 jobs:
   release:
+    timeout-minutes: 10
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: 20
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Cache node modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Set Electron cache
-        run: |
-          echo "ELECTRON_CACHE=${{ runner.temp }}/electron-cache" >> $GITHUB_ENV
-          echo "ELECTRON_BUILDER_CACHE=${{ runner.temp }}/electron-builder-cache" >> $GITHUB_ENV
-
-      - name: Cache Electron
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/electron-cache
-          key: ${{ runner.os }}-electron-cache-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-cache-
-
-      - name: Cache Electron Builder
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/electron-builder-cache
-          key: ${{ runner.os }}-electron-builder-cache-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-builder-cache-
+          node-version: 22
 
       - name: Install Dependencies
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm install --no-audit --no-fund
-        env:
-          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          ELECTRON_CUSTOM_DIR: '{{ version }}'
+        run: npm install
 
       # - name: build-linux
       #   if: matrix.os == 'ubuntu-latest'
