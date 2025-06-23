@@ -1,13 +1,15 @@
 import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
 import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs'
 import { homedir } from 'os'
+import { spawn, ChildProcess } from 'child_process'
 import icon from '../../resources/icon.png?asset'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuiting = false
+let executableProcess: ChildProcess | null = null
 
 function createWindow(): void {
   // Load saved window bounds
@@ -115,6 +117,7 @@ function createTray(): void {
       label: '退出',
       click: () => {
         isQuiting = true
+        stopPlatformExecutable()
         app.quit()
       }
     }
@@ -281,6 +284,9 @@ app.whenReady().then(() => {
     }
   })
 
+  // 启动平台对应的执行文件
+  startPlatformExecutable()
+
   createWindow()
   createTray()
 
@@ -302,6 +308,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuiting = true
+  stopPlatformExecutable()
 })
 
 // Window bounds management
@@ -357,6 +364,89 @@ function saveWindowBounds(): void {
     writeFileSync(configPath, JSON.stringify(config, null, 2))
   } catch (error) {
     console.error('Failed to save window bounds:', error)
+  }
+}
+
+// 启动平台对应的执行文件
+function startPlatformExecutable(): void {
+  try {
+    let executableName: string
+    let executablePath: string
+
+    // 根据平台选择对应的执行文件
+    switch (process.platform) {
+      case 'win32':
+        executableName = 'pic2video.exe'
+        break
+      case 'darwin':
+        executableName = 'pic2video_mac'
+        break
+      case 'linux':
+        executableName = 'pic2video_linux'
+        break
+      default:
+        console.warn('Unsupported platform:', process.platform)
+        return
+    }
+
+    // 构建执行文件路径
+    if (is.dev) {
+      // 开发环境下的路径
+      executablePath = join(__dirname, '../../resources', executableName)
+    } else {
+      // 生产环境下的路径
+      executablePath = join(process.resourcesPath, 'resources', executableName)
+    }
+
+    console.log('Starting executable:', executablePath)
+
+    // 确保执行文件有可执行权限 (Linux/macOS)
+    if (process.platform !== 'win32') {
+      try {
+        chmodSync(executablePath, '755')
+      } catch (error) {
+        console.warn('Failed to set executable permissions:', error)
+      }
+    }
+
+    // 启动执行文件
+    executableProcess = spawn(executablePath, [], {
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+
+    if (executableProcess.stdout) {
+      executableProcess.stdout.on('data', (data) => {
+        console.log(`[${executableName}] stdout:`, data.toString())
+      })
+    }
+
+    if (executableProcess.stderr) {
+      executableProcess.stderr.on('data', (data) => {
+        console.error(`[${executableName}] stderr:`, data.toString())
+      })
+    }
+
+    executableProcess.on('close', (code) => {
+      console.log(`[${executableName}] process exited with code ${code}`)
+      executableProcess = null
+    })
+
+    executableProcess.on('error', (error) => {
+      console.error(`[${executableName}] Failed to start process:`, error)
+      executableProcess = null
+    })
+  } catch (error) {
+    console.error('Error starting platform executable:', error)
+  }
+}
+
+// 停止执行文件进程
+function stopPlatformExecutable(): void {
+  if (executableProcess) {
+    console.log('Stopping platform executable...')
+    executableProcess.kill()
+    executableProcess = null
   }
 }
 
