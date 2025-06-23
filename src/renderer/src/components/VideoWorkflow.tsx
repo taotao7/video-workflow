@@ -32,6 +32,9 @@ export interface WorkflowState {
   videoFilename: string | null
   isGeneratingVideo: boolean
 
+  // Error handling
+  error: string | null
+
   // UI state
   currentStep: 1 | 2 | 3
 }
@@ -47,6 +50,7 @@ function VideoWorkflow(): React.JSX.Element {
     videoUrl: null,
     videoFilename: null,
     isGeneratingVideo: false,
+    error: null,
     currentStep: 1
   })
 
@@ -133,6 +137,7 @@ function VideoWorkflow(): React.JSX.Element {
       videoUrl: null,
       videoFilename: null,
       isGeneratingVideo: false,
+      error: null,
       currentStep: 1
     })
   }

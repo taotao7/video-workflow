@@ -240,12 +240,21 @@ export class APIService {
         body: JSON.stringify(requestData)
       })
 
-      if (!response.ok) {
-        throw new Error('Video generation failed')
-      }
-
       const result = await response.json()
       console.log('Video generation API response:', result)
+
+      if (!response.ok) {
+        // Use the error message from the API response if available
+        const errorMessage =
+          result.message || `Video generation failed: ${response.status} ${response.statusText}`
+        throw new Error(errorMessage)
+      }
+
+      // Check if the API returned success: false even with 200 status
+      if (result.success === false) {
+        const errorMessage = result.message || 'Video generation failed'
+        throw new Error(errorMessage)
+      }
 
       // Return the complete response object that matches VideoGenerateResponse interface
       return result as VideoGenerateResponse

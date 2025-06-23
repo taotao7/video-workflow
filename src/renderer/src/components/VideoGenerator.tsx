@@ -32,7 +32,7 @@ function VideoGenerator({
   const generateSRT = async (): Promise<void> => {
     if (!state.audioFile) return
 
-    updateState({ isGeneratingSRT: true })
+    updateState({ isGeneratingSRT: true, error: null })
     setProgress(0)
 
     try {
@@ -69,15 +69,16 @@ function VideoGenerator({
       }, 1000)
     } catch (error) {
       console.error('Error generating SRT:', error)
-      updateState({ isGeneratingSRT: false })
-      alert('生成SRT文件失败，请检查ByteDance API配置并重试')
+      const errorMessage =
+        error instanceof Error ? error.message : '生成SRT文件失败，请检查ByteDance API配置并重试'
+      updateState({ isGeneratingSRT: false, error: errorMessage })
     }
   }
 
   const generateVideo = async (): Promise<void> => {
     if (!state.audioFile || state.images.length === 0) return
 
-    updateState({ isGeneratingVideo: true })
+    updateState({ isGeneratingVideo: true, error: null })
     setProgress(0)
 
     try {
@@ -106,20 +107,17 @@ function VideoGenerator({
       clearInterval(progressInterval)
       setProgress(100)
 
-      // Handle the API response structure
-      if (response.success) {
-        updateState({
-          videoUrl: response.download_url,
-          videoFilename: response.output,
-          isGeneratingVideo: false
-        })
-      } else {
-        throw new Error(response.message || '视频生成失败')
-      }
+      // Update state with successful response
+      updateState({
+        videoUrl: response.download_url,
+        videoFilename: response.output,
+        isGeneratingVideo: false
+      })
     } catch (error) {
       console.error('Error generating video:', error)
-      updateState({ isGeneratingVideo: false })
-      alert('生成视频失败，请检查视频生成服务并重试')
+      const errorMessage =
+        error instanceof Error ? error.message : '生成视频失败，请检查视频生成服务并重试'
+      updateState({ isGeneratingVideo: false, error: errorMessage })
     }
   }
 
@@ -174,6 +172,19 @@ function VideoGenerator({
                   {state.isGeneratingSRT ? '正在生成字幕...' : '开始生成字幕'}
                 </button>
                 <p className="generation-hint">使用AI语音识别技术从音频文件生成SRT字幕文件</p>
+              </div>
+            )}
+
+            {state.error && (
+              <div className="error-message">
+                <div className="error-icon">✗</div>
+                <div className="error-content">
+                  <h3>生成失败</h3>
+                  <p>{state.error}</p>
+                  <button className="retry-button" onClick={() => updateState({ error: null })}>
+                    重试
+                  </button>
+                </div>
               </div>
             )}
 
@@ -251,6 +262,19 @@ function VideoGenerator({
                 {state.isGeneratingVideo ? '正在生成视频...' : '开始生成视频'}
               </button>
               <p className="generation-hint">将音频、图片和字幕合成为最终视频文件</p>
+            </div>
+          )}
+
+          {state.error && (
+            <div className="error-message">
+              <div className="error-icon">✗</div>
+              <div className="error-content">
+                <h3>生成失败</h3>
+                <p>{state.error}</p>
+                <button className="retry-button" onClick={() => updateState({ error: null })}>
+                  重试
+                </button>
+              </div>
             </div>
           )}
 
