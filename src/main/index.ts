@@ -5,6 +5,9 @@ import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs'
 import { homedir } from 'os'
 import { spawn, ChildProcess } from 'child_process'
 import icon from '../../resources/icon.png?asset'
+import pic2videoWin from '../../resources/pic2video.exe?asset'
+import pic2videoMac from '../../resources/pic2video_mac?asset'
+import pic2videoLinux from '../../resources/pic2video_linux?asset'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -370,35 +373,28 @@ function saveWindowBounds(): void {
 // 启动平台对应的执行文件
 function startPlatformExecutable(): void {
   try {
-    let executableName: string
     let executablePath: string
 
     // 根据平台选择对应的执行文件
     switch (process.platform) {
       case 'win32':
-        executableName = 'pic2video.exe'
+        executablePath = pic2videoWin
         break
       case 'darwin':
-        executableName = 'pic2video_mac'
+        executablePath = pic2videoMac
         break
       case 'linux':
-        executableName = 'pic2video_linux'
+        executablePath = pic2videoLinux
         break
       default:
         console.warn('Unsupported platform:', process.platform)
         return
     }
 
-    // 构建执行文件路径
-    if (is.dev) {
-      // 开发环境下的路径
-      executablePath = join(__dirname, '../../resources', executableName)
-    } else {
-      // 生产环境下的路径
-      executablePath = join(process.resourcesPath, 'resources', executableName)
-    }
-
     console.log('Starting executable:', executablePath)
+
+    // 从路径中提取文件名用于日志
+    const executableName = basename(executablePath)
 
     // 确保执行文件有可执行权限 (Linux/macOS)
     if (process.platform !== 'win32') {
