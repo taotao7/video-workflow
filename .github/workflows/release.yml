@@ -74,7 +74,7 @@ jobs:
         run: npm run build:win
 
       - name: release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           draft: false
           files: |
