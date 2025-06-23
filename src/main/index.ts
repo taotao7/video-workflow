@@ -80,7 +80,7 @@ function createWindow(): void {
   }
 
   // Log renderer process errors
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+  mainWindow.webContents.on('console-message', (_, level, message, line, sourceId) => {
     console.log(`[Renderer] ${level}: ${message}`)
     if (line) console.log(`  at line ${line} in ${sourceId}`)
   })
@@ -89,7 +89,7 @@ function createWindow(): void {
     console.error('[Main] Renderer process became unresponsive')
   })
 
-  mainWindow.webContents.on('render-process-gone', (event, details) => {
+  mainWindow.webContents.on('render-process-gone', (_, details) => {
     console.error('[Main] Renderer process crashed:', details)
   })
 }
@@ -153,7 +153,7 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   // Handle app config save/load
-  ipcMain.handle('save-app-config', async (event, config) => {
+  ipcMain.handle('save-app-config', async (_, config) => {
     try {
       let existingConfig = {}
 
@@ -273,7 +273,7 @@ app.whenReady().then(() => {
   })
 
   // Handle drag and drop file paths
-  ipcMain.handle('get-file-paths', async (event, fileNames: string[]) => {
+  ipcMain.handle('get-file-paths', async (_, fileNames: string[]) => {
     // This is a simplified approach - in a real app you might want to
     // implement a more sophisticated file path resolution
     try {
