@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu, dialog, nativeImage } from 'electron'
 import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs'
@@ -6,6 +6,8 @@ import { homedir } from 'os'
 import { spawn, ChildProcess } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
+import trayIcon16 from '../../resources/tray-icons/tray-icon-16.png?asset'
+import trayIcon32 from '../../resources/tray-icons/tray-icon-32.png?asset'
 import pic2videoWin from '../../resources/pic2video.exe?asset&asarUnpack'
 import pic2videoMac from '../../resources/pic2video_mac?asset&asarUnpack'
 import pic2videoLinux from '../../resources/pic2video_linux?asset&asarUnpack'
@@ -99,7 +101,25 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  tray = new Tray(icon)
+  // 创建合适大小的托盘图标
+  let trayImage: Electron.NativeImage
+
+  // 根据平台选择合适的托盘图标大小
+  if (process.platform === 'darwin') {
+    // macOS 通常使用 16x16 像素的托盘图标
+    trayImage = nativeImage.createFromPath(trayIcon16)
+    trayImage = trayImage.resize({ width: 16, height: 16 })
+  } else if (process.platform === 'win32') {
+    // Windows 通常使用 16x16 或 32x32 像素的托盘图标
+    trayImage = nativeImage.createFromPath(trayIcon16)
+    trayImage = trayImage.resize({ width: 16, height: 16 })
+  } else {
+    // Linux 使用 22x22 像素的托盘图标
+    trayImage = nativeImage.createFromPath(trayIcon32)
+    trayImage = trayImage.resize({ width: 22, height: 22 })
+  }
+
+  tray = new Tray(trayImage)
 
   const contextMenu = Menu.buildFromTemplate([
     {
