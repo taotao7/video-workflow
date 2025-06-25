@@ -17,6 +17,228 @@ let tray: Tray | null = null
 let isQuiting = false
 let executableProcess: ChildProcess | null = null
 
+// 单实例锁定 - 确保应用只能运行一个实例
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // 如果无法获取锁，说明已有实例在运行，退出当前实例
+  console.log('应用已在运行，退出当前实例')
+  app.quit()
+} else {
+  // 监听第二个实例尝试启动的事件
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // 如果有人试图运行第二个实例，我们应该聚焦到我们的窗口
+    console.log('检测到第二个实例尝试启动，聚焦到现有窗口')
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
+      if (!mainWindow.isVisible()) {
+        mainWindow.show()
+      }
+      mainWindow.focus()
+    }
+  })
+
+  // This method will be called when Electron has finished
+  // initialization and is ready to create browser windows.
+  // Some APIs can only be used after this event occurs.
+  app.whenReady().then(() => {
+    // Set app user model id for windows
+    electronApp.setAppUserModelId('com.electron')
+
+    // Default open or close DevTools by F12 in development
+    // and ignore CommandOrControl + R in production.
+    // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
+    })
+
+    // IPC test
+    ipcMain.on('ping', () => console.log('pong'))
+
+    // Handle update-related IPC calls
+    ipcMain.handle('check-for-updates', async () => {
+      if (!is.dev) {
+        try {
+          const result = await autoUpdater.checkForUpdates()
+          return { success: true, updateInfo: result?.updateInfo }
+        } catch (error) {
+          console.error('检查更新失败:', error)
+          return { success: false, error: (error as Error).message }
+        }
+      }
+      return { success: false, error: '开发环境不支持自动更新' }
+    })
+
+    ipcMain.handle('restart-and-install-update', async () => {
+      if (!is.dev) {
+        autoUpdater.quitAndInstall()
+        return { success: true }
+      }
+      return { success: false, error: '开发环境不支持自动更新' }
+    })
+
+    // Handle app config save/load
+    ipcMain.handle('save-app-config', async (_, config) => {
+      try {
+        let existingConfig = {}
+
+        if (existsSync(configPath)) {
+          try {
+            existingConfig = JSON.parse(readFileSync(configPath, 'utf8'))
+          } catch {
+            existingConfig = {}
+          }
+        }
+
+        const newConfig = {
+          ...existingConfig,
+          appConfig: config
+        }
+
+        writeFileSync(configPath, JSON.stringify(newConfig, null, 2))
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to save app config:', error)
+        return { success: false, error: (error as Error).message }
+      }
+    })
+
+    ipcMain.handle('load-app-config', async () => {
+      try {
+        if (!existsSync(configPath)) {
+          return { success: true, config: null }
+        }
+
+        const config = JSON.parse(readFileSync(configPath, 'utf8'))
+        return { success: true, config: config.appConfig || null }
+      } catch (error) {
+        console.error('Failed to load app config:', error)
+        return { success: false, error: (error as Error).message }
+      }
+    })
+
+    // Handle file dialog for images
+    ipcMain.handle('select-images', async () => {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }]
+      })
+
+      if (!result.canceled) {
+        const imageData = result.filePaths
+          .map((filePath) => {
+            try {
+              const buffer = readFileSync(filePath)
+              const base64 = buffer.toString('base64')
+              const fileName = basename(filePath)
+
+              // Determine MIME type
+              const ext = filePath.split('.').pop()?.toLowerCase()
+              let mimeType = 'image/jpeg'
+              if (ext === 'png') mimeType = 'image/png'
+              else if (ext === 'gif') mimeType = 'image/gif'
+              else if (ext === 'webp') mimeType = 'image/webp'
+              else if (ext === 'bmp') mimeType = 'image/bmp'
+
+              return {
+                filePath,
+                fileName,
+                base64: `data:${mimeType};base64,${base64}`,
+                mimeType
+              }
+            } catch (error) {
+              console.error('Error reading file:', filePath, error)
+              return null
+            }
+          })
+          .filter(Boolean)
+
+        return { success: true, imageData }
+      }
+      return { success: false, imageData: [] }
+    })
+
+    // Handle file dialog for audio
+    ipcMain.handle('select-audio', async () => {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        properties: ['openFile'],
+        filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }]
+      })
+
+      if (!result.canceled && result.filePaths.length > 0) {
+        const filePath = result.filePaths[0]
+        try {
+          const buffer = readFileSync(filePath)
+          const base64 = buffer.toString('base64')
+          const fileName = basename(filePath)
+
+          // Determine MIME type
+          const ext = filePath.split('.').pop()?.toLowerCase()
+          let mimeType = 'audio/mpeg'
+          if (ext === 'wav') mimeType = 'audio/wav'
+          else if (ext === 'aac') mimeType = 'audio/aac'
+          else if (ext === 'm4a') mimeType = 'audio/mp4'
+          else if (ext === 'ogg') mimeType = 'audio/ogg'
+
+          return {
+            success: true,
+            audioData: {
+              filePath,
+              fileName,
+              base64: `data:${mimeType};base64,${base64}`,
+              mimeType
+            }
+          }
+        } catch (error) {
+          console.error('Error reading audio file:', filePath, error)
+          return { success: false, audioData: null }
+        }
+      }
+      return { success: false, audioData: null }
+    })
+
+    // Handle drag and drop file paths
+    ipcMain.handle('get-file-paths', async (_, fileNames: string[]) => {
+      // This is a simplified approach - in a real app you might want to
+      // implement a more sophisticated file path resolution
+      try {
+        return { success: true, filePaths: fileNames }
+      } catch (error) {
+        console.error('Error getting file paths:', error)
+        return { success: false, filePaths: [] }
+      }
+    })
+
+    // 启动平台对应的执行文件
+    startPlatformExecutable()
+
+    createWindow()
+    createTray()
+
+    app.on('activate', function () {
+      // On macOS it's common to re-create a window in the app when the
+      // dock icon is clicked and there are no other windows open.
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+
+  // Quit when all windows are closed, except on macOS. There, it's common
+  // for applications and their menu bar to stay active until the user quits
+  // explicitly with Cmd + Q.
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin' && isQuiting) {
+      app.quit()
+    }
+  })
+
+  app.on('before-quit', () => {
+    isQuiting = true
+    stopPlatformExecutable()
+  })
+}
+
 function createWindow(): void {
   // Load saved window bounds
   const savedBounds = loadWindowBounds()
@@ -197,204 +419,6 @@ autoUpdater.on('update-downloaded', (info) => {
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded', info)
   }
-})
-
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
-
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
-
-  // Handle update-related IPC calls
-  ipcMain.handle('check-for-updates', async () => {
-    if (!is.dev) {
-      try {
-        const result = await autoUpdater.checkForUpdates()
-        return { success: true, updateInfo: result?.updateInfo }
-      } catch (error) {
-        console.error('检查更新失败:', error)
-        return { success: false, error: (error as Error).message }
-      }
-    }
-    return { success: false, error: '开发环境不支持自动更新' }
-  })
-
-  ipcMain.handle('restart-and-install-update', async () => {
-    if (!is.dev) {
-      autoUpdater.quitAndInstall()
-      return { success: true }
-    }
-    return { success: false, error: '开发环境不支持自动更新' }
-  })
-
-  // Handle app config save/load
-  ipcMain.handle('save-app-config', async (_, config) => {
-    try {
-      let existingConfig = {}
-
-      if (existsSync(configPath)) {
-        try {
-          existingConfig = JSON.parse(readFileSync(configPath, 'utf8'))
-        } catch {
-          existingConfig = {}
-        }
-      }
-
-      const newConfig = {
-        ...existingConfig,
-        appConfig: config
-      }
-
-      writeFileSync(configPath, JSON.stringify(newConfig, null, 2))
-      return { success: true }
-    } catch (error) {
-      console.error('Failed to save app config:', error)
-      return { success: false, error: (error as Error).message }
-    }
-  })
-
-  ipcMain.handle('load-app-config', async () => {
-    try {
-      if (!existsSync(configPath)) {
-        return { success: true, config: null }
-      }
-
-      const config = JSON.parse(readFileSync(configPath, 'utf8'))
-      return { success: true, config: config.appConfig || null }
-    } catch (error) {
-      console.error('Failed to load app config:', error)
-      return { success: false, error: (error as Error).message }
-    }
-  })
-
-  // Handle file dialog for images
-  ipcMain.handle('select-images', async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
-      properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }]
-    })
-
-    if (!result.canceled) {
-      const imageData = result.filePaths
-        .map((filePath) => {
-          try {
-            const buffer = readFileSync(filePath)
-            const base64 = buffer.toString('base64')
-            const fileName = basename(filePath)
-
-            // Determine MIME type
-            const ext = filePath.split('.').pop()?.toLowerCase()
-            let mimeType = 'image/jpeg'
-            if (ext === 'png') mimeType = 'image/png'
-            else if (ext === 'gif') mimeType = 'image/gif'
-            else if (ext === 'webp') mimeType = 'image/webp'
-            else if (ext === 'bmp') mimeType = 'image/bmp'
-
-            return {
-              filePath,
-              fileName,
-              base64: `data:${mimeType};base64,${base64}`,
-              mimeType
-            }
-          } catch (error) {
-            console.error('Error reading file:', filePath, error)
-            return null
-          }
-        })
-        .filter(Boolean)
-
-      return { success: true, imageData }
-    }
-    return { success: false, imageData: [] }
-  })
-
-  // Handle file dialog for audio
-  ipcMain.handle('select-audio', async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
-      properties: ['openFile'],
-      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg'] }]
-    })
-
-    if (!result.canceled && result.filePaths.length > 0) {
-      const filePath = result.filePaths[0]
-      try {
-        const buffer = readFileSync(filePath)
-        const base64 = buffer.toString('base64')
-        const fileName = basename(filePath)
-
-        // Determine MIME type
-        const ext = filePath.split('.').pop()?.toLowerCase()
-        let mimeType = 'audio/mpeg'
-        if (ext === 'wav') mimeType = 'audio/wav'
-        else if (ext === 'aac') mimeType = 'audio/aac'
-        else if (ext === 'm4a') mimeType = 'audio/mp4'
-        else if (ext === 'ogg') mimeType = 'audio/ogg'
-
-        return {
-          success: true,
-          audioData: {
-            filePath,
-            fileName,
-            base64: `data:${mimeType};base64,${base64}`,
-            mimeType
-          }
-        }
-      } catch (error) {
-        console.error('Error reading audio file:', filePath, error)
-        return { success: false, audioData: null }
-      }
-    }
-    return { success: false, audioData: null }
-  })
-
-  // Handle drag and drop file paths
-  ipcMain.handle('get-file-paths', async (_, fileNames: string[]) => {
-    // This is a simplified approach - in a real app you might want to
-    // implement a more sophisticated file path resolution
-    try {
-      return { success: true, filePaths: fileNames }
-    } catch (error) {
-      console.error('Error getting file paths:', error)
-      return { success: false, filePaths: [] }
-    }
-  })
-
-  // 启动平台对应的执行文件
-  startPlatformExecutable()
-
-  createWindow()
-  createTray()
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
-
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' && isQuiting) {
-    app.quit()
-  }
-})
-
-app.on('before-quit', () => {
-  isQuiting = true
-  stopPlatformExecutable()
 })
 
 // Window bounds management
