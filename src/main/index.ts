@@ -26,7 +26,7 @@ if (!gotTheLock) {
   app.quit()
 } else {
   // 监听第二个实例尝试启动的事件
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
+  app.on('second-instance', (_, __, ___) => {
     // 如果有人试图运行第二个实例，我们应该聚焦到我们的窗口
     console.log('检测到第二个实例尝试启动，聚焦到现有窗口')
     if (mainWindow) {
