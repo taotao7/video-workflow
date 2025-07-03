@@ -101,7 +101,8 @@ function VideoGenerator({
       const response: VideoGenerateResponse = await apiService.generateVideo(
         state.audioFile,
         state.images,
-        state.srtContent || ''
+        state.srtContent || '',
+        state.burnSubtitles
       )
 
       clearInterval(progressInterval)
@@ -254,6 +255,17 @@ function VideoGenerator({
             </div>
           ) : (
             <div className="video-generation">
+              <div className="option-row">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={state.burnSubtitles}
+                    onChange={(e) => updateState({ burnSubtitles: e.target.checked })}
+                  />
+                  在视频中烧录字幕
+                </label>
+              </div>
+
               <button
                 className="generate-button primary"
                 onClick={generateVideo}

@@ -276,7 +276,8 @@ export class APIService {
   async generateVideo(
     audioData: { file: File; path: string },
     imageFiles: { file: File; path: string }[],
-    srtContent: string
+    srtContent: string,
+    burnSubtitles: boolean
   ): Promise<VideoGenerateResponse> {
     try {
       console.log('Starting video generation...')
@@ -296,7 +297,8 @@ export class APIService {
       const requestData = {
         images: imagePaths,
         mp3: audioData.path,
-        srt: srtContent
+        srt: srtContent,
+        burn_subtitles: burnSubtitles
       }
 
       const response = await fetch(`${this.config.videoGenBaseUrl}/generate`, {
