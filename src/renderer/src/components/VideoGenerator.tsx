@@ -56,7 +56,7 @@ function VideoGenerator({
       }, 300)
 
       // Generate SRT using ByteDance API (will upload to R2 internally)
-      const srtContent = await apiService.generateSRT(state.audioFile.file)
+      const srtContent = await apiService.generateSRT(state.audioFile)
 
       clearInterval(progressInterval)
       setProgress(100)

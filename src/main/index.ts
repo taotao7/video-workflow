@@ -211,6 +211,26 @@ if (!gotTheLock) {
       }
     })
 
+    // Handle reading file by path (for large audio files)
+    ipcMain.handle('read-file', async (_, filePath: string) => {
+      try {
+        console.log('Reading file:', filePath)
+        const buffer = readFileSync(filePath)
+        console.log('File read successfully, size:', buffer.length, 'bytes')
+        return {
+          success: true,
+          buffer: buffer.buffer,
+          size: buffer.length
+        }
+      } catch (error) {
+        console.error('Error reading file:', filePath, error)
+        return {
+          success: false,
+          error: (error as Error).message
+        }
+      }
+    })
+
     // 启动平台对应的执行文件
     startPlatformExecutable()
 

@@ -56,9 +56,21 @@ export class APIService {
     this.config = config
   }
 
-  async generateSRT(audioFile: File): Promise<string> {
+  async generateSRT(audioData: { file: File; path: string } | File): Promise<string> {
     try {
+      // Handle both old File format and new audioData format
+      const isAudioData = audioData && typeof audioData === 'object' && 'path' in audioData
+      const audioFile = isAudioData
+        ? (audioData as { file: File; path: string }).file
+        : (audioData as File)
+      const audioPath = isAudioData ? (audioData as { file: File; path: string }).path : null
+
       console.log('Starting SRT generation for file:', audioFile.name)
+      console.log('Audio path:', audioPath)
+
+      // 检查是否为轻量级文件对象
+      const isLightweightFile = (audioFile as any).isLightweight === true
+      console.log('Is lightweight file:', isLightweightFile)
       console.log('Config check:', {
         hasToken: !!this.config.bytedanceToken,
         hasAppId: !!this.config.bytedanceAppId,
@@ -66,9 +78,64 @@ export class APIService {
         appId: this.config.bytedanceAppId
       })
 
-      // 直接使用二进制提交，不需要上传到R2
-      console.log('Converting audio file to binary...')
-      const audioBuffer = await audioFile.arrayBuffer()
+      // 处理文件数据获取
+      let audioBuffer: ArrayBuffer
+      const isRealPath = audioPath && (audioPath.includes('/') || audioPath.includes('\\'))
+
+      if (isLightweightFile) {
+        // 轻量级文件对象必须通过文件路径读取
+        if (!isRealPath) {
+          throw new Error('轻量级文件对象缺少有效的文件路径')
+        }
+        if (!window.electron?.ipcRenderer) {
+          throw new Error('Electron IPC 不可用，无法读取文件')
+        }
+
+        console.log('Reading lightweight file from path via Electron:', audioPath)
+        const fileData = await window.electron.ipcRenderer.invoke('read-file', audioPath)
+        if (fileData && fileData.success && fileData.buffer) {
+          audioBuffer = fileData.buffer
+          console.log(
+            'Successfully read audio file via Electron, size:',
+            audioBuffer.byteLength,
+            'bytes'
+          )
+        } else {
+          throw new Error(
+            `Failed to read audio file from path: ${fileData?.error || 'Unknown error'}`
+          )
+        }
+      } else if (isRealPath && window.electron?.ipcRenderer) {
+        // 有真正文件路径的普通文件，优先通过 Electron 读取
+        console.log('Reading audio file from path via Electron:', audioPath)
+        const fileData = await window.electron.ipcRenderer.invoke('read-file', audioPath)
+        if (fileData && fileData.success && fileData.buffer) {
+          audioBuffer = fileData.buffer
+          console.log(
+            'Successfully read audio file via Electron, size:',
+            audioBuffer.byteLength,
+            'bytes'
+          )
+        } else {
+          console.warn('Electron read failed, falling back to File object:', fileData?.error)
+          // 回退到使用 File 对象
+          if (audioFile.size === 0) {
+            throw new Error('Audio file is empty or corrupted - please select the file again')
+          }
+          audioBuffer = await audioFile.arrayBuffer()
+        }
+      } else {
+        // 直接使用 File 对象 - 确保是真正包含数据的 File 对象
+        console.log('Converting audio file to binary...')
+        if (audioFile.size === 0) {
+          throw new Error('Audio file is empty or corrupted - please select the file again')
+        }
+        audioBuffer = await audioFile.arrayBuffer()
+      }
+
+      if (!audioBuffer || audioBuffer.byteLength === 0) {
+        throw new Error('No audio data available - file may be too large or empty')
+      }
 
       // 获取音频文件的MIME类型
       const contentType = audioFile.type || 'audio/mpeg'
